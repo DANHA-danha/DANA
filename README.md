@@ -3,26 +3,39 @@
  Jupyter Notebook, CSV, Excel 등 데이터 분석 결과물을 업로드하면
  Claude AI가 자동으로 전문 보고서를 생성 시스템
 
+ ---
+
+## 프로젝트 구조
+```
+DANA/
+├── Img/
+│   └── dana_architecture_diagram.png      # 아키텍쳐
+│   └── nice_logo.svg     
+├── prompt/
+│   └── DANA_프롬프트.txt        # 프롬프트
+├── result/
+│   └── Action screen.mov      # 동작화면
+│   └── reult.pptx             # PPT 결과보고서 
+│   └── result.docx            # doc 결과보고서
+│   └── result.xlsx            # excel 결과보고서
+├── sample_notebooks/
+│   └── land_analysis.ipynb    # 입출력 예시파일
+├── .gitignore
+├── README.md
+├── app.py                     # Streamlit 웹 UI
+├── main.py                    # 실행
+├── report_generator.py        # 파싱·AI·출력
+└── requirements.txt                  
+```
+
+
+
 ---
 ## 시스템 아키텍처
 <p align="center">
   <img src="Img/dana_architecture_diagram.png" width="100%" />
 </p>
 
----
-
-## 프로젝트 구조
-```
-dana/
-├── app.py                  # Streamlit 웹 UI
-├── report_generator.py     # 파싱·AI·출력
-├── main.py                 # 실행
-├── sample_notebooks/
-│   └── analysis.ipynb      # 샘플 분석 파일
-├── requirements.txt
-├── .gitignore
-└── .env                   
-```
 
 ---
 ## 실행
