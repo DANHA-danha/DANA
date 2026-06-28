@@ -17,8 +17,11 @@ from report_generator import (
 
 def get_logo_base64():
     logo_path = os.path.join(os.path.dirname(__file__), "assets", "nice_logo.svg")
-    with open(logo_path, "r") as f:
-        return base64.b64encode(f.read().encode()).decode()
+    try:
+        with open(logo_path, "r") as f:
+            return base64.b64encode(f.read().encode()).decode()
+    except FileNotFoundError:
+        return ""
 
 st.set_page_config(page_title="DANA", page_icon="📊", layout="wide", initial_sidebar_state="collapsed")
 LOGO_B64 = get_logo_base64()

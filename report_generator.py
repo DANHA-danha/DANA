@@ -108,7 +108,7 @@ def extract_csv_chart_data(df):
 
 
 def setup_korean_font():
-    for name in ['AppleGothic', 'Malgun Gothic', 'NanumGothic']:
+    for name in ['AppleGothic', 'Apple SD Gothic Neo', 'NanumGothic']:
         matches = [f for f in fm.fontManager.ttflist if name in f.name]
         if matches:
             plt.rcParams['font.family'] = name
@@ -505,6 +505,8 @@ def save_report(report_content, report_type, chart_paths=None, output_dir="outpu
 
 
 def _clean_md(text):
+    import unicodedata
+    text = unicodedata.normalize('NFC', text)
     text = text.replace('**', '').replace('*', '')
     lines = []
     for line in text.split('\n'):
@@ -541,7 +543,7 @@ def export_docx(report_text, chart_figures=None):
     section.right_margin = Cm(2.5)
 
     style = doc.styles['Normal']
-    style.font.name = '맑은 고딕'
+    style.font.name = 'Apple SD Gothic Neo'
     style.font.size = Pt(10)
     style.paragraph_format.space_after = Pt(3)
     style.paragraph_format.line_spacing = 1.5
@@ -710,7 +712,7 @@ def export_docx(report_text, chart_figures=None):
                             paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
                             for run in paragraph.runs:
                                 run.font.size = Pt(9)
-                                run.font.name = '맑은 고딕'
+                                run.font.name = 'Apple SD Gothic Neo'
                         if table_is_first_row:
                             _cell_shd(cell, '001489')
                             for paragraph in cell.paragraphs:
@@ -732,7 +734,7 @@ def export_docx(report_text, chart_figures=None):
 
                 run = p.add_run(clean)
                 run.font.size = Pt(10)
-                run.font.name = '맑은 고딕'
+                run.font.name = 'Apple SD Gothic Neo'
                 if '▲' in clean or '증가' in clean:
                     run.font.color.rgb = RED
                 elif '▼' in clean or '감소' in clean:
@@ -827,13 +829,13 @@ def export_xlsx(report_text, datasets=None):
         right=Side(style='thin', color='D1D5DB'),
     )
 
-    title_font = Font(bold=True, size=16, color=WHITE, name='맑은 고딕')
-    h2_font = Font(bold=True, size=12, color=NAVY, name='맑은 고딕')
-    insight_font = Font(italic=True, size=10.5, color=NAVY_LIGHT, name='맑은 고딕')
-    normal_font = Font(size=10, color=DARK, name='맑은 고딕')
-    bullet_font = Font(size=10, color=DARK, name='맑은 고딕')
-    table_header_font = Font(bold=True, size=10, color=WHITE, name='맑은 고딕')
-    table_cell_font = Font(size=10, color=DARK, name='맑은 고딕')
+    title_font = Font(bold=True, size=16, color=WHITE, name='Apple SD Gothic Neo')
+    h2_font = Font(bold=True, size=12, color=NAVY, name='Apple SD Gothic Neo')
+    insight_font = Font(italic=True, size=10.5, color=NAVY_LIGHT, name='Apple SD Gothic Neo')
+    normal_font = Font(size=10, color=DARK, name='Apple SD Gothic Neo')
+    bullet_font = Font(size=10, color=DARK, name='Apple SD Gothic Neo')
+    table_header_font = Font(bold=True, size=10, color=WHITE, name='Apple SD Gothic Neo')
+    table_cell_font = Font(size=10, color=DARK, name='Apple SD Gothic Neo')
     wrap_align = Alignment(wrap_text=True, vertical='top')
 
     # ── 보고서 요약 시트 ──
@@ -940,7 +942,7 @@ def export_xlsx(report_text, datasets=None):
             for col in range(1, 5):
                 ws_data.cell(row=1, column=col).fill = navy_fill
             t = ws_data.cell(row=1, column=2, value=ds['title'])
-            t.font = Font(bold=True, size=13, color=WHITE, name='맑은 고딕')
+            t.font = Font(bold=True, size=13, color=WHITE, name='Apple SD Gothic Neo')
             ws_data.row_dimensions[1].height = 35
 
             headers = ['항목', f'값 ({ds["unit"]})', '비중']
@@ -972,17 +974,17 @@ def export_xlsx(report_text, datasets=None):
                     highlight = PatternFill(start_color=BG_LIGHT, end_color=BG_LIGHT, fill_type="solid")
                     for c in [c1, c2, c3]:
                         c.fill = highlight
-                        c.font = Font(bold=True, size=10, color=NAVY, name='맑은 고딕')
+                        c.font = Font(bold=True, size=10, color=NAVY, name='Apple SD Gothic Neo')
                 elif k % 2 == 0:
                     for c in [c1, c2, c3]:
                         c.fill = lighter_fill
 
             sum_row = len(ds['labels']) + 4
-            ws_data.cell(row=sum_row, column=2, value="합계").font = Font(bold=True, size=10, color=NAVY, name='맑은 고딕')
+            ws_data.cell(row=sum_row, column=2, value="합계").font = Font(bold=True, size=10, color=NAVY, name='Apple SD Gothic Neo')
             sc = ws_data.cell(row=sum_row, column=3, value=total)
-            sc.font = Font(bold=True, size=10, color=NAVY, name='맑은 고딕')
+            sc.font = Font(bold=True, size=10, color=NAVY, name='Apple SD Gothic Neo')
             sc.number_format = '#,##0.##'
-            ws_data.cell(row=sum_row, column=4, value=1).font = Font(bold=True, size=10, color=NAVY, name='맑은 고딕')
+            ws_data.cell(row=sum_row, column=4, value=1).font = Font(bold=True, size=10, color=NAVY, name='Apple SD Gothic Neo')
             ws_data.cell(row=sum_row, column=4).number_format = '0.0%'
             for col in range(2, 5):
                 ws_data.cell(row=sum_row, column=col).border = Border(
@@ -1005,6 +1007,11 @@ def export_pptx(report_text, chart_figures=None, title="", purpose="",
     import io
 
     report_text = _clean_md(report_text)
+    import unicodedata
+    title = unicodedata.normalize('NFC', title) if title else title
+    purpose = unicodedata.normalize('NFC', purpose) if purpose else purpose
+    dept = unicodedata.normalize('NFC', dept) if dept else dept
+    author = unicodedata.normalize('NFC', author) if author else author
 
     prs = Presentation()
     prs.slide_width = Inches(13.333)
@@ -1042,13 +1049,13 @@ def export_pptx(report_text, chart_figures=None, title="", purpose="",
         bx = s.shapes.add_textbox(l, t, w, h); bx.text_frame.word_wrap = True
         p = bx.text_frame.paragraphs[0]; p.text = str(txt)[:150]
         p.font.size = Pt(sz); p.font.bold = b; p.font.color.rgb = c
-        p.font.name = '맑은 고딕'; p.alignment = a
+        p.font.name = 'Apple SD Gothic Neo'; p.alignment = a
     def _multi(s, l, t, w, h, items, sz=10):
         bx = s.shapes.add_textbox(l, t, w, h); tf = bx.text_frame; tf.word_wrap = True
         for i, (txt, bold, color) in enumerate(items):
             p = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
             p.text = txt[:120]; p.font.size = Pt(sz); p.font.bold = bold
-            p.font.color.rgb = color; p.font.name = '맑은 고딕'; p.space_after = Pt(3)
+            p.font.color.rgb = color; p.font.name = 'Apple SD Gothic Neo'; p.space_after = Pt(3)
     def _hdr(s, txt, pg):
         _rect(s, Inches(0), Inches(0), W, Inches(1.0), NAVY)
         _rect(s, Inches(0), Inches(1.0), W, Emu(18000), NAVY_M)
@@ -1064,7 +1071,7 @@ def export_pptx(report_text, chart_figures=None, title="", purpose="",
                 if ci >= nc: continue
                 cell = ts.table.cell(ri, ci); cell.text = ct
                 for p in cell.text_frame.paragraphs:
-                    p.font.size = Pt(9); p.font.name = '맑은 고딕'; p.alignment = PP_ALIGN.CENTER
+                    p.font.size = Pt(9); p.font.name = 'Apple SD Gothic Neo'; p.alignment = PP_ALIGN.CENTER
                     if ri == 0: p.font.bold = True; p.font.color.rgb = WHITE
                 if ri == 0: cell.fill.solid(); cell.fill.fore_color.rgb = NAVY
                 elif ri % 2 == 0: cell.fill.solid(); cell.fill.fore_color.rgb = RGBColor(0xEF,0xF6,0xFF)
@@ -1167,8 +1174,11 @@ def export_pptx(report_text, chart_figures=None, title="", purpose="",
                 _chart(sl, chart_figures[ci], Inches(6.5), Inches(1.2), Inches(6.3), Inches(5)); ci += 1
             elif hc:
                 items = [(f"• {b[:90]}", False, RED if '▲' in b else BLU if '▼' in b else DARK) for b in sub['bul'][:6]]
-                if items: _multi(sl, Inches(0.6), y, Inches(5.5), Inches(4.5), items)
-                _chart(sl, chart_figures[ci], Inches(6.3), Inches(1.2), Inches(6.5), Inches(5.2)); ci += 1
+                if items:
+                    _multi(sl, Inches(0.6), y, Inches(5.5), Inches(4.5), items)
+                    _chart(sl, chart_figures[ci], Inches(6.3), Inches(1.2), Inches(6.5), Inches(5.2)); ci += 1
+                else:
+                    _chart(sl, chart_figures[ci], Inches(3.5), Inches(1.5), Inches(6.3), Inches(5)); ci += 1
             elif ht:
                 y += _tbl(sl, sub['tbl'], Inches(0.6), y)
                 for b in sub['bul'][:5]:
@@ -1186,7 +1196,7 @@ def export_pptx(report_text, chart_figures=None, title="", purpose="",
             _hdr(sl, "02  시각화 자료", pg)
             for j in range(2):
                 if i+j < len(chart_figures):
-                    _chart(sl, chart_figures[i+j], Inches(0.4)+Inches(j*6.4), Inches(1.3), Inches(6), Inches(5.5))
+                    _chart(sl, chart_figures[i+j], Inches(0.4)+Inches(j*6.4) if (i+1<len(chart_figures[ci:])) else Inches(3.5), Inches(1.3), Inches(6), Inches(5.5))
 
     # 결론
     for sec in cn:
