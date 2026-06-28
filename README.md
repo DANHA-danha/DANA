@@ -6,7 +6,7 @@
 ---
 ## 시스템 아키텍처
 <p align="center">
-  <img src="img/dana_architecture_diagram" width="100%" />
+  <img src="Img/dana_architecture_diagram.png" width="100%" />
 </p>
 
 ---
