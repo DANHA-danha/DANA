@@ -5,7 +5,9 @@
 
 ---
 ## 시스템 아키텍처
-![DANA 시스템 아키텍처](dana_architecture_diagram.png)
+<p align="center">
+  <img src="img/dana_architecture_diagram" width="100%" />
+</p>
 
 ---
 
@@ -13,8 +15,8 @@
 ```
 dana/
 ├── app.py                  # Streamlit 웹 UI
-├── report_generator.py     # 핵심 엔진 (파싱·AI·출력)
-├── main.py                 # CLI 실행 모드
+├── report_generator.py     # 파싱·AI·출력
+├── main.py                 # 실행
 ├── sample_notebooks/
 │   └── analysis.ipynb      # 샘플 분석 파일
 ├── requirements.txt
