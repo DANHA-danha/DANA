@@ -4,11 +4,15 @@ import tempfile
 import streamlit as st
 from report_generator import (
     extract_notebook_content,
+    extract_csv_content,
+    extract_excel_content,
+    extract_csv_chart_data,
     extract_chart_data,
+    generate_charts_figures,
     generate_report,
-    setup_korean_font,
     export_docx,
     export_xlsx,
+    export_pptx,
 )
 
 def get_logo_base64():
@@ -16,351 +20,365 @@ def get_logo_base64():
     with open(logo_path, "r") as f:
         return base64.b64encode(f.read().encode()).decode()
 
-st.set_page_config(
-    page_title="DANA - 데이터 분석 보고서 자동 생성",
-    page_icon="📊",
-    layout="wide",
-    initial_sidebar_state="collapsed",
-)
-
+st.set_page_config(page_title="DANA", page_icon="📊", layout="wide", initial_sidebar_state="collapsed")
 LOGO_B64 = get_logo_base64()
 
-# ── CSS ──
 st.markdown("""
 <style>
-    @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+*{font-family:'Pretendard',sans-serif;}
+.stApp{background:#F4F6FA;}
+.block-container{max-width:1320px;padding:0 1rem 2rem;margin-left:60px;}
+[data-testid="collapsedControl"],[data-testid="stToolbar"],[data-testid="stDecoration"],
+header[data-testid="stHeader"]{display:none!important;}
 
-    /* 전체 */
-    .stApp { background: #F5F6FA; font-family: 'Pretendard', sans-serif; }
-    .block-container { max-width: 1100px; padding-top: 0.5rem; padding-bottom: 2rem; }
-    [data-testid="collapsedControl"],
-    [data-testid="stToolbar"],
-    [data-testid="stDecoration"],
-    header[data-testid="stHeader"] { display: none !important; }
+/* ── 왼쪽 사이드바 ── */
+.sidebar-nav{position:fixed;top:0;left:0;width:52px;height:100vh;background:#1E293B;
+  display:flex;flex-direction:column;align-items:center;padding-top:12px;z-index:9999;}
+.sidebar-nav .nav-logo{width:32px;height:32px;background:#001489;border-radius:8px;
+  display:flex;align-items:center;justify-content:center;margin-bottom:20px;
+  font-weight:900;color:white;font-size:14px;}
+.sidebar-nav a{text-decoration:none;}
+.sidebar-nav .nav-icon{width:36px;height:36px;border-radius:8px;display:flex;
+  align-items:center;justify-content:center;margin-bottom:6px;cursor:pointer;
+  transition:all .15s;}
+.sidebar-nav .nav-icon:hover{background:#334155;}
+.sidebar-nav .nav-icon.active{background:#334155;}
+.sidebar-nav .nav-icon svg{width:20px;height:20px;}
+.sidebar-nav .nav-bottom{margin-top:auto;margin-bottom:16px;}
 
-    /* ── 헤더 ── */
-    .top-bar {
-        display: flex; justify-content: space-between; align-items: center;
-        padding: 14px 0; border-bottom: 1px solid #E5E7EB; margin-bottom: 28px;
-    }
-    .top-bar-left { display: flex; align-items: center; gap: 14px; }
-    .logo-text { font-size: 1.5rem; font-weight: 800; color: #111827; letter-spacing: -0.5px; }
-    .logo-sub { font-size: 0.82rem; color: #9CA3AF; font-weight: 400; }
-    .nice-logo { height: 38px; width: auto; }
+/* ── 헤더 ── */
+.top-hdr{display:flex;justify-content:space-between;align-items:center;
+  padding:10px 0;border-bottom:1px solid #E2E8F0;margin-bottom:18px;}
+.top-hdr-l{display:flex;align-items:center;gap:16px;}
+.top-hdr-logo{font-size:1.5rem;font-weight:900;color:#111827;letter-spacing:-1px;}
+.top-hdr-txt{display:flex;flex-direction:column;border-left:1px solid #D1D5DB;padding-left:14px;}
+.top-hdr-txt span:first-child{font-size:0.78rem;color:#374151;font-weight:600;}
+.top-hdr-txt span:last-child{font-size:0.68rem;color:#9CA3AF;}
+.top-hdr-r{display:flex;align-items:center;gap:14px;}
+.nice-logo{height:34px;}
+.top-icon{width:30px;height:30px;border-radius:50%;background:#F1F5F9;display:flex;
+  align-items:center;justify-content:center;font-size:14px;color:#64748B;cursor:pointer;}
 
-    /* ── 히어로 ── */
-    .hero {
-        background: linear-gradient(135deg, #ECEEFB 0%, #F3F1FF 50%, #EDE9FE 100%);
-        border-radius: 20px; padding: 44px 40px 36px; margin-bottom: 32px;
-        display: flex; justify-content: space-between; align-items: flex-start; gap: 40px;
-    }
-    .hero-left { flex: 1; }
-    .hero-right { flex: 0 0 320px; }
-    .hero-badge {
-        display: inline-block; background: white; border: 1px solid #C7D2FE;
-        border-radius: 20px; padding: 5px 16px; font-size: 0.82rem;
-        color: #6366F1; font-weight: 600; margin-bottom: 16px;
-    }
-    .hero-title { font-size: 1.9rem; font-weight: 800; color: #111827; line-height: 1.35; margin-bottom: 12px; }
-    .hero-accent { color: #6366F1; }
-    .hero-desc { font-size: 0.92rem; color: #6B7280; line-height: 1.7; margin-bottom: 24px; }
+/* ── 히어로 ── */
+.hero{background:linear-gradient(135deg,#EFF6FF 0%,#DBEAFE 40%,#E0E7FF 100%);
+  border-radius:16px;padding:32px 32px 24px;margin-bottom:20px;
+  display:flex;justify-content:space-between;align-items:center;gap:24px;position:relative;overflow:hidden;}
+.hero::after{content:'';position:absolute;top:-40px;right:-40px;width:300px;height:300px;
+  background:radial-gradient(circle,rgba(0,20,137,0.04) 0%,transparent 70%);border-radius:50%;}
+.hero-l{flex:1;z-index:1;}
+.hero-badge{color:#001489;font-size:0.78rem;font-weight:700;margin-bottom:8px;}
+.hero-title{font-size:1.8rem;font-weight:900;color:#111827;line-height:1.3;margin-bottom:8px;}
+.hero-accent{color:#001489;}
+.hero-desc{font-size:0.82rem;color:#64748B;line-height:1.6;}
+.hero-r{flex:0 0 380px;z-index:1;position:relative;}
 
-    /* 히어로 우측 목업 */
-    .hero-mockup {
-        background: white; border-radius: 16px; padding: 20px 22px;
-        box-shadow: 0 4px 24px rgba(99,102,241,0.10); border: 1px solid #E0E0EF;
-    }
-    .mockup-badge {
-        display: inline-block; background: #6366F1; color: white;
-        font-size: 0.65rem; font-weight: 700; padding: 3px 10px;
-        border-radius: 6px; margin-bottom: 8px;
-    }
-    .mockup-title { font-size: 0.85rem; font-weight: 700; color: #111827; margin-bottom: 14px; }
-    .mockup-bars { display: flex; gap: 6px; align-items: flex-end; height: 48px; margin-bottom: 10px; }
-    .mockup-bar { border-radius: 4px 4px 0 0; width: 18px; }
-    .mockup-line { height: 36px; margin-bottom: 12px; position: relative; }
-    .mockup-line svg { width: 100%; height: 100%; }
-    .mockup-done {
-        display: flex; align-items: center; gap: 8px;
-        margin-top: 10px; padding-top: 10px; border-top: 1px solid #F3F4F6;
-    }
-    .mockup-done-icon {
-        width: 22px; height: 22px; border-radius: 50%; background: #22C55E;
-        display: flex; align-items: center; justify-content: center;
-        color: white; font-size: 0.7rem; font-weight: 700;
-    }
-    .mockup-done-text { font-size: 0.78rem; color: #6B7280; font-weight: 600; }
+/* 노트북 목업 */
+.laptop{background:#1E293B;border-radius:10px;padding:14px 16px;color:#CBD5E1;
+  font-family:'JetBrains Mono','Fira Code',monospace;font-size:0.62rem;line-height:1.5;
+  box-shadow:0 8px 24px rgba(0,20,137,0.1);}
+.laptop-bar{display:flex;gap:4px;margin-bottom:8px;}
+.laptop-dot{width:7px;height:7px;border-radius:50%;}
+.kw{color:#93C5FD;}.fn{color:#60A5FA;}.st{color:#86EFAC;}.cm{color:#64748B;}
+.chart-pop{position:absolute;top:14px;right:-24px;width:190px;background:white;
+  border-radius:10px;padding:12px;box-shadow:0 4px 16px rgba(0,0,0,0.08);border:1px solid #E2E8F0;}
+.chart-pop-title{font-size:0.65rem;font-weight:700;color:#111827;margin-bottom:6px;}
+.chart-pop svg{width:100%;height:60px;}
 
-    /* 기능 카드 */
-    .feat-row { display: flex; gap: 14px; margin-top: 4px; }
-    .feat-card {
-        background: white; border-radius: 14px; padding: 18px 16px;
-        flex: 1; border: 1px solid #E5E7EB;
-    }
-    .feat-icon {
-        width: 40px; height: 40px; border-radius: 10px; background: #F3F4F6;
-        display: flex; align-items: center; justify-content: center;
-        font-size: 1.2rem; margin-bottom: 10px;
-    }
-    .feat-title { font-weight: 700; font-size: 0.88rem; color: #111827; margin-bottom: 4px; }
-    .feat-desc { font-size: 0.78rem; color: #9CA3AF; line-height: 1.45; }
+/* ── 3컬럼 균등 높이 ── */
+div[data-testid="stHorizontalBlock"]{align-items:stretch!important;}
+div[data-testid="stColumn"]{flex:1!important;}
+div[data-testid="stColumn"]>div,
+div[data-testid="stColumn"]>div>div{display:flex!important;flex-direction:column!important;flex:1!important;}
+div[data-testid="stColumn"]>div>div>div[data-testid="stVerticalBlockBorderWrapper"]{
+  background:white;border-radius:12px!important;border:1px solid #E2E8F0!important;
+  flex:1!important;display:flex!important;flex-direction:column!important;}
+div[data-testid="stVerticalBlockBorderWrapper"]>div{padding:20px!important;flex:1!important;
+  display:flex!important;flex-direction:column!important;}
+div[data-testid="stVerticalBlockBorderWrapper"]>div>div[data-testid="stVerticalBlock"]{
+  flex:1!important;display:flex!important;flex-direction:column!important;}
 
-    /* ── 사용 방법 ── */
-    .section-hd { text-align: center; margin: 28px 0 18px; }
-    .section-title { font-size: 1.25rem; font-weight: 800; color: #111827; }
-    .section-sub { font-size: 0.85rem; color: #9CA3AF; margin-top: 4px; }
-    .steps { display: flex; gap: 14px; margin-bottom: 32px; }
-    .step {
-        background: white; border-radius: 16px; padding: 22px 16px 18px;
-        flex: 1; text-align: center; border: 1px solid #E5E7EB; position: relative;
-    }
-    .step-n {
-        position: absolute; top: 10px; left: 10px;
-        width: 24px; height: 24px; border-radius: 7px; background: #6366F1;
-        color: white; font-weight: 700; font-size: 0.75rem;
-        display: flex; align-items: center; justify-content: center;
-    }
-    .step-icon { font-size: 1.8rem; margin: 6px 0 8px; }
-    .step-title { font-weight: 700; font-size: 0.88rem; color: #111827; margin-bottom: 4px; }
-    .step-desc { font-size: 0.76rem; color: #9CA3AF; line-height: 1.4; }
-    .step-arr {
-        position: absolute; right: -14px; top: 50%; transform: translateY(-50%);
-        color: #D1D5DB; font-size: 1.1rem; font-weight: 700;
-    }
+.ptitle{font-size:0.85rem;font-weight:700;color:#111827;margin-bottom:8px;display:flex;align-items:center;gap:6px;}
+.pnum{background:#001489;color:white;font-size:0.65rem;font-weight:700;
+  width:18px;height:18px;border-radius:5px;display:inline-flex;align-items:center;justify-content:center;}
 
-    /* ── 3컬럼 패널 (st.container border) ── */
-    div[data-testid="stColumn"] {
-        display: flex; flex-direction: column;
-    }
-    div[data-testid="stColumn"] > div {
-        flex: 1; display: flex; flex-direction: column;
-    }
-    div[data-testid="stColumn"] > div > div {
-        flex: 1; display: flex; flex-direction: column;
-    }
-    div[data-testid="stColumn"] > div > div > div[data-testid="stVerticalBlockBorderWrapper"] {
-        background: white; border-radius: 16px !important;
-        border: 1px solid #E5E7EB !important;
-        flex: 1;
-    }
-    div[data-testid="stVerticalBlockBorderWrapper"] > div {
-        padding: 20px 22px !important;
-    }
-    .panel-num {
-        font-size: 0.95rem; font-weight: 700; color: #111827; margin-bottom: 10px;
-    }
+/* 업로더 */
+div[data-testid="stFileUploader"] label{font-size:0!important;height:0;}
 
-    /* 파일 업로더 */
-    div[data-testid="stFileUploader"] label { font-size: 0px !important; height: 0; }
-    .file-info-box {
-        background: #F9FAFB; border-radius: 10px; padding: 12px 14px;
-        margin-top: 14px; font-size: 0.8rem; color: #6B7280; line-height: 1.6;
-    }
+.file-info{background:#F8FAFC;border-radius:8px;padding:8px 10px;margin-top:8px;margin-bottom:16px;
+  font-size:0.72rem;color:#64748B;line-height:1.5;}
 
-    /* 라디오 */
-    .stRadio > label { font-size: 0px !important; height: 0; }
-    .stRadio > div { gap: 0 !important; }
-    .stRadio > div > label {
-        padding: 12px 14px !important;
-        border: 1px solid #E5E7EB !important; border-radius: 10px !important;
-        margin-bottom: 7px !important; transition: all 0.15s;
-    }
-    .stRadio > div > label:hover { border-color: #A5B4FC !important; background: #F5F3FF !important; }
-    .stRadio > div > label[data-checked="true"] { border-color: #6366F1 !important; background: #EEF2FF !important; }
+/* 라디오 카드 동일 높이 */
+.stRadio>div[role="radiogroup"]{gap:8px!important;}
+.stRadio>div[role="radiogroup"]>label{
+  padding:14px!important;border:1px solid #E2E8F0!important;
+  border-radius:10px!important;margin:0!important;transition:all .12s;
+  min-height:70px!important;max-height:70px!important;height:70px!important;
+  box-sizing:border-box!important;overflow:hidden!important;
+  display:flex!important;align-items:center!important;}
+.stRadio>div[role="radiogroup"]>label:hover{border-color:#93C5FD!important;background:#EFF6FF!important;}
+.stRadio>div[role="radiogroup"]>label[data-checked="true"]{border-color:#001489!important;background:#DBEAFE!important;}
 
-    /* 체크박스 */
-    .stCheckbox { margin-top: 2px; }
-    .stCheckbox label span { font-size: 0.88rem !important; }
+/* 입력 */
+.stTextInput>label,.stSelectbox>label{font-size:0.75rem!important;font-weight:600!important;color:#374151!important;}
+.stTextInput input{border-radius:8px!important;font-size:0.82rem!important;}
+.stSelectbox>div>div{border-radius:8px!important;}
 
-    /* 셀렉트박스 / 텍스트 입력 */
-    .stTextInput > label, .stSelectbox > label {
-        font-size: 0.82rem !important; font-weight: 600 !important; color: #374151 !important;
-    }
-    .stTextInput input { border-radius: 10px !important; }
-    .stSelectbox > div > div { border-radius: 10px !important; }
+/* 버튼 */
+div.stButton>button[kind="primary"]{background:#001489!important;border:none!important;
+  border-radius:10px!important;padding:16px 0!important;font-size:1rem!important;font-weight:700!important;}
+div.stButton>button[kind="primary"]:hover{background:#001066!important;}
+.gen-note{text-align:center;font-size:0.72rem;color:#94A3B8;margin-top:6px;}
+.pv-dl{display:flex;align-items:center;justify-content:center;gap:6px;
+  border:1px solid #E2E8F0;border-radius:8px;padding:8px;margin-top:10px;
+  font-size:0.75rem;font-weight:600;color:#374151;cursor:pointer;}
 
-    /* 생성 버튼 */
-    div.stButton > button[kind="primary"] {
-        background: linear-gradient(135deg, #6366F1, #7C3AED) !important;
-        border: none !important; border-radius: 14px !important;
-        padding: 16px 0 !important; font-size: 1.05rem !important;
-        font-weight: 700 !important; letter-spacing: 0.5px;
-    }
-    div.stButton > button[kind="primary"]:hover {
-        background: linear-gradient(135deg, #4F46E5, #6D28D9) !important;
-    }
-
-    /* 결과 헤더 */
-    .result-hd {
-        background: linear-gradient(135deg, #6366F1, #8B5CF6);
-        color: white; border-radius: 16px; padding: 20px 28px; margin: 12px 0;
-    }
-    .result-hd-title { font-size: 1.2rem; font-weight: 700; }
+/* 결과 */
+.result-hd{background:#001489;color:white;border-radius:12px;padding:14px 22px;margin:10px 0;}
+.result-hd-title{font-size:1.05rem;font-weight:700;}
 </style>
 """, unsafe_allow_html=True)
 
-# ════════════════════════════════════════
-# 헤더
-# ════════════════════════════════════════
-st.markdown("""
-<div class="top-bar">
-    <div class="top-bar-left">
-        <span class="logo-text">DANA</span>
-        <span class="logo-sub">Data Analysis NICE Automation</span>
-    </div>
-    <img src="data:image/svg+xml;base64,""" + LOGO_B64 + """" class="nice-logo"/>
+import json
+import glob
+
+HISTORY_DIR = os.path.join(os.path.dirname(__file__), "history")
+os.makedirs(HISTORY_DIR, exist_ok=True)
+
+def save_report_to_disk(title, rtype, text, docx_data, xlsx_data, pptx_data):
+    from datetime import datetime as _dt
+    ts = _dt.now().strftime('%Y%m%d_%H%M%S')
+    base = os.path.join(HISTORY_DIR, ts)
+    meta = {'title': title, 'type': rtype, 'time': _dt.now().strftime('%m/%d %H:%M'), 'ts': ts}
+    with open(f"{base}_meta.json", 'w', encoding='utf-8') as f:
+        json.dump(meta, f, ensure_ascii=False)
+    with open(f"{base}_report.md", 'w', encoding='utf-8') as f:
+        f.write(text)
+    with open(f"{base}.docx", 'wb') as f:
+        f.write(docx_data)
+    with open(f"{base}.xlsx", 'wb') as f:
+        f.write(xlsx_data)
+    with open(f"{base}.pptx", 'wb') as f:
+        f.write(pptx_data)
+
+def load_history():
+    metas = sorted(glob.glob(os.path.join(HISTORY_DIR, "*_meta.json")), reverse=True)
+    results = []
+    for mp in metas:
+        with open(mp, 'r', encoding='utf-8') as f:
+            meta = json.load(f)
+        base = mp.replace('_meta.json', '')
+        md_path = f"{base}_report.md"
+        if os.path.exists(md_path):
+            with open(md_path, 'r', encoding='utf-8') as f:
+                meta['text'] = f.read()
+        meta['docx_path'] = f"{base}.docx"
+        meta['xlsx_path'] = f"{base}.xlsx"
+        meta['pptx_path'] = f"{base}.pptx"
+        results.append(meta)
+    return results
+
+# ── 페이지 라우팅 ──
+if 'page' not in st.session_state:
+    st.session_state.page = 'home'
+if 'download_history' not in st.session_state:
+    st.session_state.download_history = []
+
+page = st.query_params.get("page", "home")
+if page in ["home", "history"]:
+    st.session_state.page = page
+
+home_active = "active" if st.session_state.page == "home" else ""
+hist_active = "active" if st.session_state.page == "history" else ""
+
+st.markdown(f"""
+<div class="sidebar-nav">
+    <div class="nav-logo">D</div>
+    <a href="?page=home">
+        <div class="nav-icon {home_active}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        </div>
+    </a>
+    <a href="?page=history">
+        <div class="nav-icon {hist_active}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        </div>
+    </a>
 </div>
 """, unsafe_allow_html=True)
 
-# ════════════════════════════════════════
-# 히어로
-# ════════════════════════════════════════
+# ── 헤더 ──
+st.markdown("""
+<div class="top-hdr">
+    <div class="top-hdr-l">
+        <span class="top-hdr-logo">DANA</span>
+        <div class="top-hdr-txt">
+            <span>DANA - Data Analysis NICE Automation</span>
+            <span>AI 기반 데이터 분석 보고서 자동 생성 플랫폼</span>
+        </div>
+    </div>
+    <div class="top-hdr-r">
+        <img src="data:image/svg+xml;base64,""" + LOGO_B64 + """" class="nice-logo"/>
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
+# ══════════════════════════════════════════
+# 히스토리 페이지
+# ══════════════════════════════════════════
+if st.session_state.page == "history":
+    st.markdown('<div style="font-size:1.3rem;font-weight:800;color:#111827;margin-bottom:16px;">📄 보고서 히스토리</div>', unsafe_allow_html=True)
+    history = load_history()
+    if history:
+        for i, rpt in enumerate(history):
+            with st.expander(f"📄 {rpt['title']} — {rpt['type']} ({rpt['time']})", expanded=False):
+                st.markdown(rpt.get('text', ''))
+                d1, d2, d3 = st.columns(3)
+                with d1:
+                    if os.path.exists(rpt['docx_path']):
+                        with open(rpt['docx_path'], 'rb') as f:
+                            st.download_button("⬇️ Word", f.read(), os.path.basename(rpt['docx_path']),
+                                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                                use_container_width=True, key=f"h_docx_{i}")
+                with d2:
+                    if os.path.exists(rpt['xlsx_path']):
+                        with open(rpt['xlsx_path'], 'rb') as f:
+                            st.download_button("⬇️ Excel", f.read(), os.path.basename(rpt['xlsx_path']),
+                                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                use_container_width=True, key=f"h_xlsx_{i}")
+                with d3:
+                    if os.path.exists(rpt['pptx_path']):
+                        with open(rpt['pptx_path'], 'rb') as f:
+                            st.download_button("⬇️ PPT", f.read(), os.path.basename(rpt['pptx_path']),
+                                "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                                use_container_width=True, key=f"h_pptx_{i}")
+    else:
+        st.info("아직 생성된 보고서가 없습니다. 홈에서 보고서를 생성해보세요.")
+    st.stop()
+
+# ══════════════════════════════════════════
+# 홈 페이지
+# ══════════════════════════════════════════
+
+# ── 히어로 ──
 st.markdown("""
 <div class="hero">
-    <div class="hero-left">
-        <span class="hero-badge">분석은 당신이, 보고서는 DANA가</span>
+    <div class="hero-l">
+        <div class="hero-badge">분석은 당신이, 보고서는 DANA가</div>
         <div class="hero-title">데이터 분석 결과를 <span class="hero-accent">AI 보고서로 자동 완성</span></div>
-        <p class="hero-desc">
-            .ipynb 파일을 업로드하면 분석 내용을 이해하고, 분석 보고서를 자동으로 생성해 드립니다.
-        </p>
-        <div class="feat-row">
-            <div class="feat-card">
-                <div class="feat-icon">🤖</div>
-                <div class="feat-title">AI 기반 분석 이해</div>
-                <div class="feat-desc">Notebook의 코드와 결과를<br>AI가 정확히 이해합니다.</div>
+        <p class="hero-desc">파일을 업로드하면 분석 내용을 이해하여, <br> 비즈니스에 활용 가능한 보고서를 자동으로 생성해 드립니다.</p>
+    </div>
+    <div class="hero-r">
+        <div class="laptop">
+            <div class="laptop-bar">
+                <div class="laptop-dot" style="background:#EF4444;"></div>
+                <div class="laptop-dot" style="background:#F59E0B;"></div>
+                <div class="laptop-dot" style="background:#22C55E;"></div>
             </div>
-            <div class="feat-card">
-                <div class="feat-icon">📋</div>
-                <div class="feat-title">맞춤형 보고서 생성</div>
-                <div class="feat-desc">원하는 보고서 유형에 맞춰<br>구조화된 보고서를 생성합니다.</div>
-            </div>
-            <div class="feat-card">
-                <div class="feat-icon">⬇️</div>
-                <div class="feat-title">즉시 확인 & 다운로드</div>
-                <div class="feat-desc">미리보기를 확인하고<br>다양한 형식으로 다운로드하세요.</div>
-            </div>
+            <span class="kw">import</span> pandas <span class="kw">as</span> pd<br>
+            <span class="kw">import</span> matplotlib.pyplot <span class="kw">as</span> plt<br><br>
+            <span class="cm"># 데이터 로드</span><br>
+            df = pd.<span class="fn">read_csv</span>(<span class="st">'sales_data.csv'</span>)<br><br>
+            <span class="cm"># 매출 추이 분석</span><br>
+            monthly = df.<span class="fn">groupby</span>('month')['sales'].<span class="fn">sum</span>()<br>
+            plt.<span class="fn">figure</span>(figsize=(10, 5))<br>
+            monthly.<span class="fn">plot</span>(kind=<span class="st">'line'</span>, marker=<span class="st">'o'</span>)<br>
+            plt.<span class="fn">title</span>(<span class="st">'Monthly Sales Trend'</span>)<br>
+            plt.<span class="fn">xlabel</span>(<span class="st">'Month'</span>)<br>
+            plt.<span class="fn">ylabel</span>(<span class="st">'Sales'</span>)<br>
+            plt.<span class="fn">grid</span>(True)<br>
+            plt.<span class="fn">show</span>()
+        </div>
+        <div class="chart-pop">
+            <div class="chart-pop-title">Monthly Sales Trend</div>
+            <svg viewBox="0 0 170 60" fill="none">
+                <polyline points="0,50 28,42 56,45 84,30 112,22 140,10 170,18"
+                    stroke="#001489" stroke-width="2" fill="none" stroke-linecap="round"/>
+                <polygon points="0,60 0,50 28,42 56,45 84,30 112,22 140,10 170,18 170,60"
+                    fill="#001489" opacity="0.06"/>
+                <text x="0" y="8" font-size="7" fill="#94A3B8">200K</text>
+                <text x="0" y="58" font-size="7" fill="#94A3B8">0</text>
+                <text x="5" y="60" font-size="6" fill="#94A3B8">Jan</text>
+                <text x="33" y="60" font-size="6" fill="#94A3B8">Feb</text>
+                <text x="61" y="60" font-size="6" fill="#94A3B8">Mar</text>
+                <text x="89" y="60" font-size="6" fill="#94A3B8">Apr</text>
+                <text x="117" y="60" font-size="6" fill="#94A3B8">May</text>
+                <text x="148" y="60" font-size="6" fill="#94A3B8">Jun</text>
+            </svg>
         </div>
     </div>
 </div>
 """, unsafe_allow_html=True)
 
-# ════════════════════════════════════════
-# 사용 방법
-# ════════════════════════════════════════
-st.markdown("""
-<div class="section-hd">
-    <div class="section-title">사용 방법</div>
-</div>
-<div class="steps">
-    <div class="step">
-        <div class="step-n">1</div>
-        <div class="step-icon">📤</div>
-        <div class="step-title">.ipynb 파일 업로드</div>
-        <div class="step-desc">분석이 완료된 Jupyter Notebook<br>파일을 업로드하세요.</div>
-        <div class="step-arr">›</div>
-    </div>
-    <div class="step">
-        <div class="step-n">2</div>
-        <div class="step-icon">📝</div>
-        <div class="step-title">보고서 유형 선택</div>
-        <div class="step-desc">원하는 보고서 유형과 포함할<br>항목을 선택하세요.</div>
-        <div class="step-arr">›</div>
-    </div>
-    <div class="step">
-        <div class="step-n">3</div>
-        <div class="step-icon">✨</div>
-        <div class="step-title">보고서 생성</div>
-        <div class="step-desc">DANA가 분석 내용을 이해하고<br>보고서를 자동으로 생성합니다.</div>
-        <div class="step-arr">›</div>
-    </div>
-    <div class="step">
-        <div class="step-n">4</div>
-        <div class="step-icon">👁️</div>
-        <div class="step-title">미리보기 & 다운로드</div>
-        <div class="step-desc">생성된 보고서를 미리 확인하고<br>원하는 형식으로 다운로드하세요.</div>
-    </div>
-</div>
-""", unsafe_allow_html=True)
+# ══════════════════════════════════════════
+# 3컬럼
+# ══════════════════════════════════════════
+c1, c2, c3 = st.columns([1, 1, 1], gap="medium")
 
-# ════════════════════════════════════════
-# 3컬럼 패널
-# ════════════════════════════════════════
-col1, col2, col3 = st.columns([1, 1, 1], gap="medium")
-
-# ── 1. 파일 업로드 ──
-with col1:
+# ── 1. 데이터 업로드 ──
+with c1:
     with st.container(border=True):
-        st.markdown('<div class="panel-num">1. .ipynb 파일 업로드</div>', unsafe_allow_html=True)
-        uploaded_file = st.file_uploader("파일", type=["ipynb"], label_visibility="collapsed")
-        if uploaded_file:
-            size_kb = uploaded_file.size / 1024
-            st.success(f"**{uploaded_file.name}**  ·  {size_kb:.1f} KB")
-        st.markdown("""
-        <div class="file-info-box">
-            ✦ <b>지원 파일 형식</b><br>
-            • Jupyter Notebook (.ipynb)<br>
-            • 폴더 (Notebook이 포함된 폴더)<br>
-            • 파일 크기 제한: 100MB
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown('<div class="ptitle"><span class="pnum">1</span> 데이터 업로드</div>', unsafe_allow_html=True)
+        input_mode = st.radio("입력 방식", ["파일 업로드", "텍스트 입력"],
+            captions=["ipynb, csv, xlsx, txt 파일을 업로드합니다. ",
+                      "분석 결과나 데이터를 직접 붙여넣습니다. "],
+            label_visibility="collapsed")
+        uploaded_file = None
+        text_input_data = ""
+        if input_mode == "파일 업로드":
+            uploaded_file = st.file_uploader("f", type=["ipynb","csv","xlsx","xls","txt"], label_visibility="collapsed")
+            if uploaded_file:
+                st.success(f"**{uploaded_file.name}** · {uploaded_file.size/1024:.1f}KB")
+        else:
+            text_input_data = st.text_area("t", height=130, placeholder="CSV, 분석 결과 등 붙여넣기", label_visibility="collapsed")
+        st.markdown("""<div class="file-info">✦ <b>지원 형식</b><br>
+            • Jupyter Notebook (.ipynb)<br>• CSV (.csv) · Excel (.xlsx)<br>
+            • 텍스트 (.txt) · 직접 붙여넣기</div>""", unsafe_allow_html=True)
 
-# ── 2. 보고서 유형 선택 ──
-with col2:
+# ── 2. 보고서 설정 ──
+with c2:
     with st.container(border=True):
-        st.markdown('<div class="panel-num">2. 보고서 유형 선택</div>', unsafe_allow_html=True)
-        report_type = st.radio(
-            "유형",
-            ["분석 요약 보고서", "경영진 보고서", "기술 분석 보고서"],
-            captions=[
-                "핵심 인사이트와 주요 결과를 간단명료하게 요약합니다.",
-                "경영진을 위한 핵심 KPI와 전략적 제언을 중심으로 구성합니다.",
-                "분석 방법, 모델, 기술적 세부사항을 상세히 설명합니다.",
-            ],
-            label_visibility="collapsed",
-        )
-
-# ── 3. 보고서 설정 ──
-with col3:
-    with st.container(border=True):
-        st.markdown('<div class="panel-num">3. 보고서 설정</div>', unsafe_allow_html=True)
+        st.markdown('<div class="ptitle"><span class="pnum">2</span> 보고서 설정</div>', unsafe_allow_html=True)
         report_title = st.text_input("보고서 제목", placeholder="2024년 1분기 매출 분석 결과 보고서")
-        analysis_purpose = st.selectbox("분석 목적", [
-            "매출 트렌드 파악 및 성장 전략 수립",
-            "리스크 분석 및 대응 방안",
-            "고객 행동 분석",
-            "운영 효율성 검토",
-            "직접 입력",
-        ])
-        target_audience = st.selectbox("대상 독자", ["경영진", "팀 내부", "타부서 담당자", "외부 파트너"])
-        report_length = st.selectbox("보고서 길이", [
-            "짧게 (1-2 페이지)",
-            "중간 (3-5 페이지)",
-            "상세 (5-10 페이지)",
-        ])
+        report_type = st.selectbox("보고서 유형", ["분석 요약 보고서", "경영진 보고서"])
+        target_audience = st.selectbox("대상 독자", [
+            "팀 내부 (전문 용어 사용 가능, 상세 분석 포함)",
+            "외부 공유 (쉽고 친근한 표현, 핵심 위주)"])
+        s1, s2 = st.columns(2)
+        with s1:
+            dept_name = st.text_input("부서", placeholder="나이스화이팀")
+        with s2:
+            author_name = st.text_input("작성자", placeholder="김단하")
 
-# ════════════════════════════════════════
-# 생성 버튼
-# ════════════════════════════════════════
-st.markdown("")
-generate_clicked = st.button("✨  보고서 생성하기", type="primary", use_container_width=True)
+# ── 3. 보고서 생성 ──
+with c3:
+    with st.container(border=True):
+        st.markdown('<div class="ptitle"><span class="pnum">3</span> 보고서 생성</div>', unsafe_allow_html=True)
+        st.markdown('<div style="flex:1;"></div>', unsafe_allow_html=True)
+        generate_clicked = st.button("✨  보고서 생성하기", type="primary", use_container_width=True)
+        st.markdown('<div class="gen-note">생성 시간: 약 30초 ~ 1분</div>', unsafe_allow_html=True)
+        if st.session_state.download_history:
+            st.markdown("---")
+            st.markdown('<div style="font-size:0.75rem;font-weight:700;color:#374151;margin-bottom:6px;">최근 생성 보고서</div>', unsafe_allow_html=True)
+            for h in st.session_state.download_history[-3:][::-1]:
+                st.markdown(f'<div style="font-size:0.7rem;color:#64748B;padding:4px 0;border-bottom:1px solid #F1F5F9;">📄 {h}</div>', unsafe_allow_html=True)
+        st.markdown('<div style="flex:1;"></div>', unsafe_allow_html=True)
 
-# ════════════════════════════════════════
+# 숨겨진 변수 (제거된 필드 기본값)
+analysis_purpose = ""
+report_length = "중간 (3-5 페이지)"
+
+# ══════════════════════════════════════════
 # 생성 로직
-# ════════════════════════════════════════
-TYPE_MAP = {
-    "분석 요약 보고서": "분석요약",
-    "기술 분석 보고서": "기술분석",
-    "경영진 보고서": "경영진",
-}
+# ══════════════════════════════════════════
+TYPE_MAP = {"분석 요약 보고서":"분석요약","경영진 보고서":"경영진"}
 
 if generate_clicked:
-    if not uploaded_file:
-        st.error("📎 .ipynb 파일을 먼저 업로드해주세요.")
+    has_input = uploaded_file or text_input_data.strip()
+    if not has_input:
+        st.error("파일을 업로드하거나 텍스트를 입력해주세요.")
     else:
-        with tempfile.NamedTemporaryFile(suffix=".ipynb", delete=False) as tmp:
-            tmp.write(uploaded_file.getvalue())
-            tmp_path = tmp.name
-
+        tmp_path = None
         try:
             mapped = TYPE_MAP[report_type]
             chart_figures = []
@@ -368,79 +386,62 @@ if generate_clicked:
             report_text = ""
 
             with st.status("DANA가 보고서를 생성하고 있습니다...", expanded=True) as status:
-                st.write("📖 노트북 분석 중...")
-                content = extract_notebook_content(tmp_path)
-                st.write(f"✅ 노트북 읽기 완료 ({len(content):,}자)")
+                if text_input_data.strip():
+                    st.write("📖 텍스트 데이터 분석 중...")
+                    content = text_input_data.strip()
+                    st.write(f"✅ 텍스트 읽기 완료 ({len(content):,}자)")
+                elif uploaded_file:
+                    fname = uploaded_file.name.lower()
+                    suffix = os.path.splitext(fname)[1]
+                    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+                        tmp.write(uploaded_file.getvalue())
+                        tmp_path = tmp.name
+                    if fname.endswith('.ipynb'):
+                        st.write("📖 노트북 분석 중...")
+                        content = extract_notebook_content(tmp_path)
+                        st.write(f"✅ 노트북 읽기 완료 ({len(content):,}자)")
+                        st.write("📊 시각화 생성 중...")
+                        datasets = extract_chart_data(tmp_path)
+                    elif fname.endswith('.csv'):
+                        st.write("📖 CSV 데이터 분석 중...")
+                        content, df = extract_csv_content(tmp_path)
+                        st.write(f"✅ CSV 읽기 완료 ({len(content):,}자)")
+                        st.write("📊 시각화 생성 중...")
+                        if df is not None: datasets = extract_csv_chart_data(df)
+                    elif fname.endswith(('.xlsx','.xls')):
+                        st.write("📖 Excel 데이터 분석 중...")
+                        content, df = extract_excel_content(tmp_path)
+                        st.write(f"✅ Excel 읽기 완료 ({len(content):,}자)")
+                        st.write("📊 시각화 생성 중...")
+                        if df is not None: datasets = extract_csv_chart_data(df)
+                    elif fname.endswith('.txt'):
+                        st.write("📖 텍스트 파일 분석 중...")
+                        with open(tmp_path,'r',encoding='utf-8') as f: content = f.read()
+                        st.write(f"✅ 텍스트 읽기 완료 ({len(content):,}자)")
+                    else:
+                        content = uploaded_file.getvalue().decode('utf-8',errors='ignore')
 
-                st.write("📊 시각화 생성 중...")
-                datasets = extract_chart_data(tmp_path)
                 if datasets:
-                    setup_korean_font()
-                    import matplotlib.pyplot as plt
-                    palette = ['#6366F1','#818CF8','#A5B4FC','#C7D2FE','#DDD6FE','#EDE9FE','#F5F3FF']
-                    accent = ['#4338CA','#4F46E5','#6366F1','#818CF8','#A5B4FC','#C7D2FE','#DDD6FE']
-                    for ds in datasets:
-                        fig, ax = plt.subplots(figsize=(10, 5))
-                        n = len(ds['labels'])
-                        if ds['unit'] == '%':
-                            bars = ax.barh(ds['labels'][::-1], ds['values'][::-1],
-                                           color=accent[:n][::-1], height=0.6, edgecolor='white')
-                            for bar, val in zip(bars, ds['values'][::-1]):
-                                ax.text(bar.get_width()+0.1, bar.get_y()+bar.get_height()/2,
-                                        f'{val}%', va='center', fontsize=11, fontweight='bold')
-                            ax.set_xlabel('%', fontsize=11)
-                        elif '월별' in ds['title'] or '추이' in ds['title']:
-                            ax.plot(ds['labels'], ds['values'], marker='o', color='#6366F1',
-                                    linewidth=2.5, markersize=8, markerfacecolor='white',
-                                    markeredgecolor='#6366F1', markeredgewidth=2)
-                            ax.fill_between(ds['labels'], ds['values'], alpha=0.08, color='#6366F1')
-                            for x, y in zip(ds['labels'], ds['values']):
-                                ax.text(x, y+max(ds['values'])*0.02, f'{y:,.0f}',
-                                        ha='center', va='bottom', fontsize=10, fontweight='bold')
-                            ax.set_ylabel('건', fontsize=11)
-                        else:
-                            bars = ax.bar(ds['labels'], ds['values'],
-                                          color=palette[:n], width=0.6, edgecolor='white')
-                            for bar, val in zip(bars, ds['values']):
-                                ax.text(bar.get_x()+bar.get_width()/2,
-                                        bar.get_height()+max(ds['values'])*0.01,
-                                        f'{val:,.0f}{ds["unit"]}',
-                                        ha='center', va='bottom', fontsize=10, fontweight='bold')
-                        ax.set_title(ds['title'], fontsize=14, fontweight='bold', pad=15)
-                        ax.spines[['top','right']].set_visible(False)
-                        ax.tick_params(labelsize=10)
-                        fig.tight_layout()
-                        chart_figures.append(fig)
+                    chart_figures = generate_charts_figures(datasets)
                     st.write(f"✅ 차트 {len(chart_figures)}개 완료")
-
                 st.write(f"📝 {report_type} 작성 중...")
-                report_text = generate_report(
-                    content, mapped,
-                    title=report_title,
-                    purpose=analysis_purpose,
-                    audience=target_audience,
-                    length=report_length,
-                )
+                report_text = generate_report(content, mapped, title=report_title,
+                    purpose=analysis_purpose, audience=target_audience, length=report_length)
                 st.write("✅ 보고서 작성 완료")
-
                 status.update(label="✅ 보고서 생성 완료!", state="complete", expanded=False)
 
-            # ── 결과 ──
-            title_display = report_title if report_title else uploaded_file.name.replace('.ipynb', '')
-            st.markdown(f"""
-            <div class="result-hd">
-                <div class="result-hd-title">📄 {title_display} — {report_type}</div>
-            </div>
-            """, unsafe_allow_html=True)
+            title_display = report_title if report_title else (uploaded_file.name.rsplit('.',1)[0] if uploaded_file else "분석 결과")
+            from datetime import datetime as _dt
+            st.session_state.download_history.append(f"{title_display} — {report_type} ({_dt.now().strftime('%m/%d %H:%M')})")
+            st.markdown(f'<div class="result-hd"><div class="result-hd-title">📄 {title_display} — {report_type}</div></div>', unsafe_allow_html=True)
 
             if chart_figures:
                 st.subheader("📊 시각화 자료")
                 for idx in range(0, len(chart_figures), 2):
                     cols = st.columns(2)
                     for j, col in enumerate(cols):
-                        if idx + j < len(chart_figures):
-                            with col:
-                                st.pyplot(chart_figures[idx + j])
+                        if idx+j < len(chart_figures):
+                            with col: st.pyplot(chart_figures[idx+j])
                 st.divider()
 
             st.subheader("📄 보고서 본문")
@@ -450,20 +451,25 @@ if generate_clicked:
             st.write("📦 다운로드 파일 준비 중...")
             docx_data = export_docx(report_text, chart_figures=chart_figures)
             xlsx_data = export_xlsx(report_text, datasets=datasets if datasets else None)
+            pptx_data = export_pptx(report_text, chart_figures=chart_figures,
+                title=report_title, purpose=analysis_purpose,
+                audience=target_audience, dept=dept_name, author=author_name,
+                datasets=datasets if datasets else None)
 
-            dl1, dl2 = st.columns(2)
-            with dl1:
-                st.download_button("⬇️  Word (.docx) 다운로드", docx_data,
-                                   f"DANA_{mapped}_보고서.docx",
-                                   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                                   use_container_width=True)
-            with dl2:
-                st.download_button("⬇️  Excel (.xlsx) 다운로드", xlsx_data,
-                                   f"DANA_{mapped}_보고서.xlsx",
-                                   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                                   use_container_width=True)
+            save_report_to_disk(title_display, report_type, report_text, docx_data, xlsx_data, pptx_data)
+
+            d1, d2, d3 = st.columns(3)
+            with d1:
+                st.download_button("⬇️ Word (.docx)", docx_data, f"DANA_{mapped}_보고서.docx",
+                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document", use_container_width=True)
+            with d2:
+                st.download_button("⬇️ Excel (.xlsx)", xlsx_data, f"DANA_{mapped}_보고서.xlsx",
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
+            with d3:
+                st.download_button("⬇️ PPT (.pptx)", pptx_data, f"DANA_{mapped}_보고서.pptx",
+                    "application/vnd.openxmlformats-officedocument.presentationml.presentation", use_container_width=True)
 
         except Exception as e:
             st.error(f"오류가 발생했습니다: {e}")
         finally:
-            os.unlink(tmp_path)
+            if tmp_path and os.path.exists(tmp_path): os.unlink(tmp_path)
