@@ -76,7 +76,7 @@ streamlit run app.py
 <details>
 <summary> DEMO </summary>
 
-- [시연 영상 보기](./result/demo.mov)
+- [시연 영상 보기](./result/Action%20screen.mov)
 
 </details>
 
