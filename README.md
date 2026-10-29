@@ -67,3 +67,17 @@ streamlit run app.py
 | Excel 출력 | openpyxl |
 | PPT 출력 | python-pptx |
 
+---
+## UI 스크린샷
+<img src="Img/1.png" width="100%" />
+<img src="Img/2.png" width="100%" />
+<img src="Img/3.png" width="100%" />
+<img src="Img/4.png" width="100%" />
+<details>
+<summary> DEMO </summary>
+
+- [시연 영상 보기](./result/demo.mov)
+
+</details>
+
+
